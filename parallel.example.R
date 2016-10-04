@@ -26,12 +26,14 @@ cores
 # Using mcapply()
 # Run the function in parallel
 res2 <- parallel::mclapply(a, euclidian, b=33, mc.cores = cores)
-
+print(unlist(res2))
 
 # Using parLapply()
 # Set up the ’cluster’
 cl <- makeCluster(cores, type = "PSOCK")
 # Parallel calculation (parLapply):
 res3 <- parLapply(cl, a, euclidian, b=33)
+print(unlist(res3))
 # Shut down cluster
 stopCluster(cl)
+
