@@ -59,7 +59,7 @@ brute_force_knapsack1 <- function(x, W){
   maxv = 0
   ev = c()
   
-  for(i in 1:(2^n)){
+  for(i in 0:(2^n-1)){
     iv = intToBits(i)
     sv = 0
     sw = 0
@@ -82,6 +82,6 @@ brute_force_knapsack1 <- function(x, W){
 }
 
 
-brute_force_knapsack(x = knapsack_objects[1:12,], W = 3500)
+#brute_force_knapsack(x = knapsack_objects[1:12,], W = 3500)
 brute_force_knapsack1(x = knapsack_objects[1:12,], W = 3500)
 
