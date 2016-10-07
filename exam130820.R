@@ -26,6 +26,27 @@ findword <- function(filename, word){
 
 findword('test.txt', "hello")
 
+# 4. Interfacing and parallel computations
+library(parallel)
+
+max_row <- function(X){
+  # Calculate the number of cores
+  no_cores <- detectCores()
+  
+  # Initiate cluster
+  cl <- makeCluster(no_cores)
+  
+  r = parApply(cl, x, 1, max)
+  
+  # Shut down cluster
+  stopCluster(cl)
+  
+  r
+}
+
+x = matrix(c(1,3,4,5), nrow=2, ncol=2)
+max_row(x)
+
 
 
 
