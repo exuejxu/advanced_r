@@ -1,0 +1,2 @@
+1) ssh yumli241@remote-und.ida.liu.se
+2) mysql -h db-und.ida.liu.se -u yumli241 -p yumli241
