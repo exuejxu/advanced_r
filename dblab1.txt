@@ -226,21 +226,16 @@ mysql> SELECT color, AVG(weight) FROM jbparts WHERE color='black';
 
 # 13)What is the total weight of all parts that each supplier in Massachusetts ("Mass") has delivered? Retrieve the name and the total weight for each of these suppliers. Do not forget to take the quantity of delivered parts into account. Note that one row should be returned for each supplier.
 
-mysql> SELECT jbsupplier.name, SUM(jbsupply.quan*jbparts.weight) AS total_weight FROM jbsupplier, jbsupply, jbparts WHERE jbsupplier.id=jbsupply.supplier AND jbsupply.part=jbparts.id GROUP BY jbsupplier.name;
+mysql> SELECT jbsupplier.name, SUM(jbsupply.quan*jbparts.weight) AS total_weight FROM jbsupplier, jbsupply, jbparts, jbcity WHERE jbcity.state = 'Mass' AND jbcity.id=jbsupplier.city AND jbsupplier.id=jbsupply.supplier AND jbsupply.part=jbparts.id GROUP BY jbsupplier.name;
 +--------------+--------------+
 | name         | total_weight |
 +--------------+--------------+
-| A E Neumann  |            0 |
-| Amdahl       |         4050 |
-| Data General |         2055 |
 | DEC          |         3120 |
-| Edger        |          450 |
 | Fisher-Price |      1135000 |
-| IBM          |         2092 |
-| Spooley      |         1156 |
-| White Paper  |         3168 |
-| Wormley      |           95 |
 +--------------+--------------+
+2 rows in set (0.01 sec)
+
+
 10 rows in set (0.01 sec)
 
 
