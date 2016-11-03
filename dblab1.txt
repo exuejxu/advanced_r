@@ -243,3 +243,18 @@ mysql> SELECT jbsupplier.name, SUM(jbsupply.quan*jbparts.weight) AS total_weight
 +--------------+--------------+
 10 rows in set (0.01 sec)
 
+
+# 14) Create a new relation (a table), with the same attributes as the table items using the CREATE TABLE syntax where you define every attribute explicitly (i.e. not as a copy of another table). Then fill the table with all items that cost less than the average price for items. Remember to define primary and foreign keys in your table!
+
+
+CREATE TABLE cheap_jbitem (
+    id INT,
+    name VARCHAR(20),
+    dept INT NOT NULL,
+    price INT,
+    qoh INT UNSIGNED,
+    supplier INT NOT NULL,
+    PRIMARY KEY(id),
+    FOREIGN KEY(supplier) REFERENCES jbsupplier(id)) ENGINE=InnoDB;
+
+INSERT INTO cheap_jbitem SELECT * FROM jbitem WHERE price<(SELECT AVG(price) FROM jbitem);
