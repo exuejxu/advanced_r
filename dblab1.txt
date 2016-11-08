@@ -77,6 +77,7 @@ mysql> SELECT * FROM jbparts WHERE qoh=0;
 
 # 4) Which employees have a salary between 9000 (included) and 10000 (included)?
 
+mysql> SELECT * FROM jbemployee WHERE salary BETWEEN 9000 AND 10000;
 
 mysql> SELECT * FROM jbemployee where salary<=10000 AND salary>=9000;
 +-----+----------------+--------+---------+-----------+-----------+
@@ -201,6 +202,12 @@ mysql> SELECT name, color FROM jbparts WHERE weight > (SELECT weight from jbpart
 
 # 11) Formulate the same query as above, but without a subquery. (The query must not contain the weight as a constant.)
 
+mysql> SELECT s.name, s.color
+    -> FROM jbparts s, jbparts o
+    -> WHERE s.weight > o.weight
+    -> AND o.name='card reader';
+    
+    
 mysql> SELECT t1.name, t1.color FROM jbparts as t1, jbparts as t2 WHERE t1.weight > t2.weight AND t2.name='card reader';
 +--------------+--------+
 | name         | color  |
@@ -241,6 +248,48 @@ mysql> SELECT jbsupplier.name, SUM(jbsupply.quan*jbparts.weight) AS total_weight
 
 # 14) Create a new relation (a table), with the same attributes as the table items using the CREATE TABLE syntax where you define every attribute explicitly (i.e. not as a copy of another table). Then fill the table with all items that cost less than the average price for items. Remember to define primary and foreign keys in your table!
 
+mysql> DESC jbitem;
++----------+------------------+------+-----+---------+-------+
+| Field    | Type             | Null | Key | Default | Extra |
++----------+------------------+------+-----+---------+-------+
+| id       | int(11)          | NO   | PRI | 0       |       |
+| name     | varchar(20)      | YES  |     | NULL    |       |
+| dept     | int(11)          | NO   | MUL | NULL    |       |
+| price    | int(11)          | YES  |     | NULL    |       |
+| qoh      | int(10) unsigned | YES  |     | NULL    |       |
+| supplier | int(11)          | NO   | MUL | NULL    |       |
++----------+------------------+------+-----+---------+-------+
+mysql> CREATE TABLE cheaper_jbitem
+    -> (id int primary key,
+    -> name varchar(20),
+    -> dept int not null,
+    -> price int,
+    -> qoh int,
+    -> supplier int not null,
+    -> foreign key(supplier) references jbsupplier(id),
+    -> foreign key(dept) references jbdept(id));
+Query OK, 0 rows affected (0.02 sec)
+
+mysql> INSERT INTO cheaper_jbitem
+    -> SELECT * 
+    -> FROM jbitem
+    -> WHERE price<(SELECT AVG(price) FROM jbitem);
+Query OK, 14 rows affected (0.02 sec)
+Records: 14  Duplicates: 0  Warnings: 0
+mysql> DESC cheaper_jbitem;
++----------+-------------+------+-----+---------+-------+
+| Field    | Type        | Null | Key | Default | Extra |
++----------+-------------+------+-----+---------+-------+
+| id       | int(11)     | NO   | PRI | NULL    |       |
+| name     | varchar(20) | YES  |     | NULL    |       |
+| dept     | int(11)     | NO   | MUL | NULL    |       |
+| price    | int(11)     | YES  |     | NULL    |       |
+| qoh      | int(11)     | YES  |     | NULL    |       |
+| supplier | int(11)     | NO   | MUL | NULL    |       |
++----------+-------------+------+-----+---------+-------+
+6 rows in set (0.01 sec)
+
+
 
 CREATE TABLE cheap_jbitem (
     id INT,
@@ -253,3 +302,16 @@ CREATE TABLE cheap_jbitem (
     FOREIGN KEY(supplier) REFERENCES jbsupplier(id)) ENGINE=InnoDB;
 
 INSERT INTO cheap_jbitem SELECT * FROM jbitem WHERE price<(SELECT AVG(price) FROM jbitem);
+
+mysql> DESC cheap_jbitem;
++----------+------------------+------+-----+---------+-------+
+| Field    | Type             | Null | Key | Default | Extra |
++----------+------------------+------+-----+---------+-------+
+| id       | int(11)          | NO   | PRI | 0       |       |
+| name     | varchar(20)      | YES  |     | NULL    |       |
+| dept     | int(11)          | NO   |     | NULL    |       |
+| price    | int(11)          | YES  |     | NULL    |       |
+| qoh      | int(10) unsigned | YES  |     | NULL    |       |
+| supplier | int(11)          | NO   | MUL | NULL    |       |
++----------+------------------+------+-----+---------+-------+
+6 rows in set (0.01 sec)
