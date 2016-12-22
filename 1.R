@@ -1,61 +1,109 @@
-###### Assignment 1 Implementation of basis expansions
+####### Assignment 2 Using GAM to examine the mortality rates
+mydata = read.csv2("C:/Users/Sam/Desktop/machine learning/machine learning lab/influenza.csv", sep = ";", dec = ",")
 
-# read.csv(file, header = TRUE, sep = ",", dec=".")
-# read.csv2(file, header = TRUE, sep = ";", dec=",")
-data = read.csv2("C:/Users/Sam/Desktop/machine learning/lab1 block2/cube.csv")
+### 2.1 time series plots: use Time as X 
+# mortality and influenza number vary with time 
+plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
+     main = "Mortality number vs time", xlab = "Time", ylab = "Mortality" )
+plot(mydata$Time, mydata$Influenza, type = "l", col = "blue", 
+     main = "Influenza number vs time", xlab = "Time", ylab = "Influenza number" )
 
-### 1.1 Basis expansion function
-myspline = function(x, y, knots){
-  
-  m=length(knots)
-  n=length(x)
-  H=matrix(0,nrow=n,ncol=m+2) #new features
-  H[,1]=1
-  H[,2]=x
-  
-  # loop in knots and ncol
-  for(i in 1:m){
-    # loop in nrow
-    for(j in 1:n){
-      #index_logical = ((knots[i]<=x&x<knots[i+1]))
-      H[j,(i+2)] <- x[j] - knots[i]
-      # from the (i+2)th col to last col, negative elements should be 0  
-      if(H[j, (i+2)] < 0) H[j, (i+2)] = 0
-    }
-  }
-  H
-  
-  # use matrix for linear regression fun()
-  testx = H
-  trainx = H
-  testy = y
-  trainy = y
-  
-  # Estimate w for linear regression
-  w_hat = solve(t(trainx) %*% trainx) %*% t(trainx) %*% trainy
-  
-  # Prediction
-  y_hat = testx %*% w_hat
-  
-  # plot predicted and the original data
-  plot(x,y, col="blue")
-  points(x,y_hat, col = "red", lwd=2)
-  
-}
+### 2.2 GAM model, from mgcv package, Fit Generalized Additive Models
+library(mgcv)
 
-### 1.2 Test with knots at 3 and 6
-x = data$x
-y = data$y
-knots = c(2,4)
-myspline(x, y, knots)
+# s(k, sp)
+# sp -  smoothing penalty
+# k no. of unique values of variable in smoothing splines, always specify this number
+k = length(unique(mydata$Week))  #52
 
-### 1.3 Use smooth.spline() to fit the same data
-res1=smooth.spline(data$x,data$y,df=10)
+# Fit GAM model, a gaussian model 
+# which has linear terms in Year and spline term in Week by using generalized cross-validation(default fun in gam)
+model = gam(Mortality~Year+s(Week, k = 52), family = gaussian, data = mydata)
+summary(model)
 
-# y_hat
-pred = predict(res1,x=data$x)$y
+### 2.3 Plot predicted & observed mortality against time
+plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
+    xlab = "Time", ylab = "Mortality" )
+yhat = predict(model)
+lines(mydata$Time, yhat, col ="blue")
+legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
 
-# plot predicted and the original data
-plot(x,y, col="blue")
-lines(res1, col = "green", lwd=2)
+SSE=sum((yhat-mydata$Mortality)^2)
+SSE
+
+# Plot the spline component
+library(rgl)
+library(akima)
+s=interp(mydata$Year,mydata$Week, fitted(model))
+persp3d(s$x, s$y, s$z, col="red")
+
+# Seeing trend and seasonal pattern
+plot(model)
+
+### 2.4 Examine how the penalty factor of the spline function influences the deviance of the model.
+# plot predicted & observed mortality against time 
+# for cases of very high and very low penalty factors.
+
+# high penalty sp=100
+model1 = gam(Mortality~Year+s(Week, k = 52, sp=100), data = mydata)
+plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
+     xlab = "Time", ylab = "Mortality", main = "High penalty")
+yhat1 = predict(model1)
+lines(mydata$Time, yhat1, col ="blue")
+legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
+
+summary(model1)
+
+# low penalty sp=0.1
+model2 = gam(Mortality~Year+s(Week, k = 52, sp=0.1), data = mydata)
+plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
+     xlab = "Time", ylab = "Mortality", main = "Low penalty"  )
+yhat2 = predict(model2)
+lines(mydata$Time, yhat2, col ="blue")
+legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
+
+summary(model2)
+
+### 2.5  Plot the residuals(from model)& influenza values against time 
+# (in one plot)
+
+# k no. of unique values of variable in smoothing splines
+k = length(unique(mydata$Week))  #52
+
+# Fit GAM model, a gaussian model 
+# which has linear terms in Year and spline term in Week by using generalized cross-validation
+model = gam(Mortality~Year+s(Week, k = 52), family = gaussian, data = mydata)
+
+plot(mydata$Time, model$residuals, type = "l", col = "light green", 
+     xlab = "Time", ylab = "Influenza/ Residuals" )
+lines(mydata$Time, mydata$Influenza, xlab = "Time", col = "blue")
+legend("topright",col=c("light green","blue"),pch=1,legend=c("residuals","influenza"))
+
+### 2.6 GAM model
+# mortality is described as spline functions of year week, & no.of influenza.
+k = length(unique(mydata$Week))  #52 
+k1 = length(unique(mydata$Year)) #9
+k2 = length(unique(mydata$Influenza)) #85
+ 
+model3 = gam(Mortality ~ s(Year, k = 9) + s(Week, k = 52) + s(Influenza, k = 85), data = mydata)
+summary(model3)
+yhat3 = predict(model3)
+
+# test if mortality is influenced by influenza.
+# if 2 plots have diff ylim, modify ylim, choose c(min, max)
+plot(mydata$Time, yhat3,type = "l", ylim = c(0,3000), col ="red",
+     xlab = "Time", ylab = "Mortality/ Influenza")
+lines(mydata$Time, mydata$Influenza, col ="blue")
+legend("topright",col=c("red","blue"),pch=1,legend=c("Mortality","Influenza"))
+
+# Compute SSE for this fit.
+SSE = sum((mydata$Mortality-yhat3)^2)
+SSE
+
+# plot original & fitted Mortality against Time
+plot(mydata$Time, mydata$Mortality, type = "l", col = "pink", 
+     xlab = "Time", ylab = "Mortality")
+yhat3 = predict(model3)
+lines(mydata$Time, yhat3, col ="blue")
+legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
 
