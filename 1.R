@@ -1,34 +1,47 @@
-#### 1.5 Use classifier kknn() fr package kknn  with K=5
-# report the confusion matrix & misclassification rate for test data
+# Use knearest()
+fit7 = knearest(traindata, k=5, testdata)
+true7 = testdata[,ncol(data)]
 
+sens7 = c()
+spc7 = c()
+pi = seq(from = 0.05, to = 0.95, by = 0.05)
+for (i in 1:length(pi)){
+  prediction7 = as.integer(fit7>pi[i])
+  confusion7 = table(true7, prediction7)
+  sens7[i] = confusion7[2,2]/sum(confusion7[2,])
+  spc7[i] = confusion7[1,1]/sum(confusion7[1,])
+}
+sens7
+spc7
+
+# use kknn()
 library(kknn)
+fit8 = kknn(as.factor(train$Spam)~.,train,test, k = 5)
 
-# test data
-# Way 1: can compared with different value, not only 0.5
-fit5 = kknn(as.factor(train$Spam)~., train, test, k = 5)
-prob5 = fit5$prob # 2 cols: 1st col for 0,2nd col for 1
-predY5 = as.integer(prob5[,2]>0.5)
-true5 = testdata[, ncol(data)]
-conf5 = table(true5,predY5)
-misc5 = (1-sum(diag(conf5))/length(true5))
-conf5
-misc5
+prob8 = fit8$prob # probability %
+true8 = testdata[, ncol(data)]
 
-# way 2: if compared with 0.5
-fit52 = kknn(as.factor(train$Spam)~., train, test, k = 5)
-predY52 <- fitted(fit52)
-true52 = testdata[, ncol(data)]
-conf52 = table(true52, predY52)
-conf52
+sens8 = c()
+spc8 = c()
+pi = seq(from = 0.05, to = 0.95, by = 0.05)
+for (i in 1:length(pi)){
+  prediction8 = as.integer(prob8[,2]>pi[i])  # classify(0,1)
+  confusion8 = table(true8, prediction8)
+  sens8[i] = confusion8[2,2]/sum(confusion8[2,])
+  spc8[i] = confusion8[1,1]/sum(confusion8[1,])
+}
+sens8
+spc8
 
-# package(class) knn() 
-library(class)
-fit6 = knn(train, test, as.factor(train$Spam), k=5,prob = TRUE)
-prob6 = attributes(fit6)$prob
-prob6 = ifelse(fit6=="1", prob6, 1-prob6)
-predY6 = as.integer(prob6>0.5)
-true6 = testdata[, ncol(data)]
-conf6 = table(true6,predY6)
-misc6 = (1-sum(diag(conf6))/length(true6))
-conf6
-misc6
+# plot the corresponding ROC curves of 2 methods in 1 plot
+x1  <- 1 - spc7 # FPR
+y1 <- sens7     # TPR
+x2 <- 1 - spc8
+y2 <- sens8
+
+# 1st plot
+plot(x=x1, y=y1,col = "red", type = "l",  # type"l"for line
+     xlab = "fpr", ylab = "tpr", 
+     xlim = c(0, 1), ylim = c(0, 1))  #usually x,ylim=c(0,1) for probility
+# 2nd plot
+lines(x=x2, y=y2,col = "blue", type = "l")
