@@ -1,3 +1,7 @@
+###### Assignment 1 Implementation of basis expansions
+
+# read.csv(file, header = TRUE, sep = ",", dec=".")
+# read.csv2(file, header = TRUE, sep = ";", dec=",")
 data = read.csv2("C:/Users/Sam/Desktop/machine learning/lab1 block2/cube.csv")
 
 ### 1.1 Basis expansion function
@@ -54,3 +58,4 @@ pred = predict(res1,x=data$x)$y
 # plot predicted and the original data
 plot(x,y, col="blue")
 lines(res1, col = "green", lwd=2)
+
