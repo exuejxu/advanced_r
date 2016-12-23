@@ -1,109 +1,83 @@
-####### Assignment 2 Using GAM to examine the mortality rates
-mydata = read.csv2("C:/Users/Sam/Desktop/machine learning/machine learning lab/influenza.csv", sep = ";", dec = ",")
+data("swiss")
+# Fertility: Y
+# All other variables: X
+# Nfolds: 5 number of folds
+Y <- as.matrix(swiss[,1])
+X <- as.matrix(swiss[,-1])
+Nfolds <- 5
 
-### 2.1 time series plots: use Time as X 
-# mortality and influenza number vary with time 
-plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
-     main = "Mortality number vs time", xlab = "Time", ylab = "Mortality" )
-plot(mydata$Time, mydata$Influenza, type = "l", col = "blue", 
-     main = "Influenza number vs time", xlab = "Time", ylab = "Influenza number" )
+n = length(Y) #47
 
-### 2.2 GAM model, from mgcv package, Fit Generalized Additive Models
-library(mgcv)
+# permute the data
+set.seed(12345)
+ind=sample(n,n)
+X=X[ind,]
+Y=Y[ind]
+      
+k = floor(n/Nfolds) #9
+p=ncol(X)
 
-# s(k, sp)
-# sp -  smoothing penalty
-# k no. of unique values of variable in smoothing splines, always specify this number
-k = length(unique(mydata$Week))  #52
+# permute 1:k-1 subsets
+# (if n=51,Nfolds=10,k=5,first 8 subsets have 5 elements)
+index_folds <- c()
+# permute 1:k-1 subsets
+for (i in 1:k-1){
+  # 1:5, 6:10, 11:15,...,36:40
+  index_folds[((i-1)*Nfolds+1):(i*Nfolds)] = sample(c(1:Nfolds), Nfolds)
+}
 
-# Fit GAM model, a gaussian model 
-# which has linear terms in Year and spline term in Week by using generalized cross-validation(default fun in gam)
-model = gam(Mortality~Year+s(Week, k = 52), family = gaussian, data = mydata)
-summary(model)
+# permute k_th/last subset
+# last 41:47 sample(1:10, 11, replace = T)
+index_folds[((k-1)*Nfolds+1):n] = sample(c(1:Nfolds), n-(k-1)*Nfolds, replace = TRUE)
+index_folds 
+#47 index
+# [1] 2 1 3 4 5 1 2 5 4 3 5 4 3 1 2 1 3 4 2 5 2 5 1 4 3 4 3 1 2 5 1 5 4 3 2 3 4 1 2
+#[40] 5 1 4 4 3 4 4 1
+#model fit by using each fold as test
+MSE=numeric(2^p-1)
+Nfeat=numeric(2^p-1)
+Features=list()
+curr = 0
+for (f1 in 0:1)
+  for (f2 in 0:1)
+    for(f3 in 0:1)
+      for(f4 in 0:1)
+        for(f5 in 0:1){
+          model= c(f1,f2,f3,f4,f5)
+          if (sum(model)==0) next()
+          SSE=0
+          
+          for (j in 1:Nfolds){
+            # T OR F for row
+            if_subset = (index_folds==j)
+            #> valInd 51 elements if j=1
+            #[27] FALSE FALSE FALSE FALSE FALSE  TRUE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+            #[40] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE FALSE
+            
+            # T OR F for col
+            model2 = (model == 1)
+            
+            # assume matrix X has 5 columns
+            testx = X[if_subset, model2]
+            trainx = X[!if_subset, model2]
+            testy = Y[if_subset]
+            trainy = Y[!if_subset]
+            
+            # Estimate w for linear regression
+            w_hat = (solve(t(trainx) %*% trainx) %*% t(trainx)) %*% trainy
+            
+            # Prediction
+            y_hat = testx %*% w_hat
+            SSE = SSE + sum((testy-y_hat)^2)
+            
+          }
+          curr=curr+1
+          MSE[curr]=SSE/n
+          Nfeat[curr]=sum(model)
+          Features[[curr]]=model
+        }
+plot(Nfeat, MSE, col="red", xlab = "No. of features", 
+     ylab = "CV scores")
 
-### 2.3 Plot predicted & observed mortality against time
-plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
-    xlab = "Time", ylab = "Mortality" )
-yhat = predict(model)
-lines(mydata$Time, yhat, col ="blue")
-legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
-
-SSE=sum((yhat-mydata$Mortality)^2)
-SSE
-
-# Plot the spline component
-library(rgl)
-library(akima)
-s=interp(mydata$Year,mydata$Week, fitted(model))
-persp3d(s$x, s$y, s$z, col="red")
-
-# Seeing trend and seasonal pattern
-plot(model)
-
-### 2.4 Examine how the penalty factor of the spline function influences the deviance of the model.
-# plot predicted & observed mortality against time 
-# for cases of very high and very low penalty factors.
-
-# high penalty sp=100
-model1 = gam(Mortality~Year+s(Week, k = 52, sp=100), data = mydata)
-plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
-     xlab = "Time", ylab = "Mortality", main = "High penalty")
-yhat1 = predict(model1)
-lines(mydata$Time, yhat1, col ="blue")
-legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
-
-summary(model1)
-
-# low penalty sp=0.1
-model2 = gam(Mortality~Year+s(Week, k = 52, sp=0.1), data = mydata)
-plot(mydata$Time, mydata$Mortality, type = "l", col = "orange", 
-     xlab = "Time", ylab = "Mortality", main = "Low penalty"  )
-yhat2 = predict(model2)
-lines(mydata$Time, yhat2, col ="blue")
-legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
-
-summary(model2)
-
-### 2.5  Plot the residuals(from model)& influenza values against time 
-# (in one plot)
-
-# k no. of unique values of variable in smoothing splines
-k = length(unique(mydata$Week))  #52
-
-# Fit GAM model, a gaussian model 
-# which has linear terms in Year and spline term in Week by using generalized cross-validation
-model = gam(Mortality~Year+s(Week, k = 52), family = gaussian, data = mydata)
-
-plot(mydata$Time, model$residuals, type = "l", col = "light green", 
-     xlab = "Time", ylab = "Influenza/ Residuals" )
-lines(mydata$Time, mydata$Influenza, xlab = "Time", col = "blue")
-legend("topright",col=c("light green","blue"),pch=1,legend=c("residuals","influenza"))
-
-### 2.6 GAM model
-# mortality is described as spline functions of year week, & no.of influenza.
-k = length(unique(mydata$Week))  #52 
-k1 = length(unique(mydata$Year)) #9
-k2 = length(unique(mydata$Influenza)) #85
- 
-model3 = gam(Mortality ~ s(Year, k = 9) + s(Week, k = 52) + s(Influenza, k = 85), data = mydata)
-summary(model3)
-yhat3 = predict(model3)
-
-# test if mortality is influenced by influenza.
-# if 2 plots have diff ylim, modify ylim, choose c(min, max)
-plot(mydata$Time, yhat3,type = "l", ylim = c(0,3000), col ="red",
-     xlab = "Time", ylab = "Mortality/ Influenza")
-lines(mydata$Time, mydata$Influenza, col ="blue")
-legend("topright",col=c("red","blue"),pch=1,legend=c("Mortality","Influenza"))
-
-# Compute SSE for this fit.
-SSE = sum((mydata$Mortality-yhat3)^2)
-SSE
-
-# plot original & fitted Mortality against Time
-plot(mydata$Time, mydata$Mortality, type = "l", col = "pink", 
-     xlab = "Time", ylab = "Mortality")
-yhat3 = predict(model3)
-lines(mydata$Time, yhat3, col ="blue")
-legend("topright",col=c("orange","blue"),pch=1,legend=c("observed","predicted"))
-
+m=which.min(MSE)
+list(MSE=MSE[m], Features=Features[[m]])
