@@ -1,92 +1,126 @@
-####### Assignment 2 regression tree analysis
-data <- read.csv2("C:/Users/Sam/Desktop/machine learning/lab2 block2/bodyfatregression.csv")
-
-### 2.1. compute the average error of a set of individual regression trees.
-# hold-out test data
-# use 2/3 of the data for training and 1/3 as hold-out test data.
-n=dim(data)[1]
-set.seed(1234567890) 
-id=sample(1:n, floor(n*2/3)) 
-train=data[id,] 
-test=data[-id,] 
-
+### 2.3. compute the bagging regression tree
+# use the whole dataset
 ### bagging regression tree.iterations=100
 library(tree)
-mse1 = c()
+mse3 = c()
 for(B in 1:100){
-  train_pos <- sample(1:nrow(train), size=nrow(train), replace = T)
-  fittree = tree(Bodyfat_percent~., data = train[train_pos,])
-  
-  test_pos <- sample(1:nrow(test), size=nrow(test), replace = T)
-  
-  pred = predict(fittree,newdata=test[test_pos,])
-  mse = mean((pred-test[test_pos,]$Bodyfat_percent)^2)
-  mse1 = c(mse1, mse)
-} 
-
-mse1 #length 100
-hist(mse1)
-# upper bound of the squared error
-# the bagged error is never larger than the average individual errors
-mean(mse1)
-
-
-### 2.2. 3-fold cross-validation
-### bagging regression tree.iterations=100
-n = dim(data)[1]
-Nfolds = 3
-k=floor(n/Nfolds)
-
-index_folds <- c()
-for (i in 1:k-1){
-  index_folds[((i-1)*Nfolds+1):(i*Nfolds)] = sample(c(1:Nfolds), Nfolds)
-}
-
-index_folds[((k-1)*Nfolds+1):n] = sample(c(1:Nfolds), n-(k-1)*Nfolds, replace = TRUE)
-index_folds 
-
-
-mse2 = c()
-for(j in 1:Nfolds){  
-  # TRUE OR FALSE
-  if_subset = (index_folds==j)
-  test_cv = data[if_subset, ]
-  train_cv = data[!if_subset, ]
-  for (B in 1:100){
-    train_pos <- sample(1:nrow(train_cv), size=nrow(train_cv), replace = T)
-    fittree = tree(Bodyfat_percent~., data = train_cv[train_pos,])
-    pred = predict(fittree,newdata=test_cv)
-    mse = mean((pred-test_cv$Bodyfat_percent)^2)
-    mse2 = c(mse2, mse)
-  }
-}
-
-mse2 #length 300
-hist(mse2)
-# upper bound of the squared error
-mean(mse2)
-
-
-##################### built-in cv.res
-mse2 = c()
-for(i in 1:100){
-  data_pos <- sample(1:nrow(data), size=nrow(data),replace = T)
-  fit = tree(Bodyfat_percent~., data = data[data_pos,])
-  cv.res = cv.tree(fit, K=3)
-  
-  # select the best number of leaves
-  index <- which.min(cv.res$dev)
-  bestsize <- cv.res$size[index]
-  
-  finalTree = prune.tree(fit, best = bestsize)
-  
-  pred = predict(finalTree, newdata=data)
+  data_pos <- sample(1:nrow(data), size=nrow(data), replace = T)
+  fittree = tree(Bodyfat_percent~., data = data[data_pos,])
+  pred = predict(fittree,newdata=data)
   mse = mean((pred-data$Bodyfat_percent)^2)
-  mse2 = c(mse2, mse)
+  mse3 = c(mse3, mse)
 } 
 
-mse2
-
+mse3 #length 100
+hist(mse3)
 # upper bound of the squared error
-mean(mse2) 
-###################################################
+mean(mse3)
+
+
+####### Assignment 3 boosting regression tree analysis
+### 3.1. Interpret the plot resulting from the code below.
+library(mboost)
+
+bf=read.csv2("C:/Users/Sam/Desktop/machine learning/Lab2Block2/bodyfatregression.csv")
+m=blackboost(Bodyfat_percent~Waist_cm+Weight_kg, data=bf)
+mstop(m)
+cvf=cv(model.weights(m), type = "kfold")
+cvm=cvrisk(m, folds =cvf, grid = 1:100)## Use crossvalidation to find stopping time M
+plot(cvm)
+
+### 3.2. Estimate the squared error of the boosting regression tree.
+# boost_control defines no. of boosting iterations mstop.
+b=blackboost(Bodyfat_percent~Waist_cm+Weight_kg, data=train, 
+             control=boost_control(mstop=mstop(cvm)))
+pred <- predict (b, newdata = test) 
+mse3 = mean((pred-test$Bodyfat_percent)^2)
+mse3
+
+####### Assignment 4 evaluate the performance of Adaboost classification trees & random forests
+df <- read.csv2("C:/Users/Sam/Desktop/machine learning/Lab2 block2/spambase.csv")
+
+n1=dim(df)[1]
+set.seed(1234567890) 
+id=sample(1:n1, floor(n1*2/3)) 
+train1=df[id,] 
+test1=df[-id,] 
+
+### Adaboost classification trees
+library(mboost)
+# as.factor(Spam)~.
+# Specify the loss function corresponding to Adaboost
+# parameter: family=AdaExp()
+# mstop: an integer giving the number of initial boosting iterations.
+
+ada <- function(nt){
+  fitb = blackboost(as.factor(Spam)~., data=train1, family=AdaExp(), 
+                    control=boost_control(mstop=nt))   # 0,1,...
+  pred <- predict(fitb, test1, type="class")
+  t = table(true=test1$Spam, pred=pred)
+  mis = 1-sum(diag(t))/sum(t)
+  return(mis)
+}
+
+# tree number
+nt = seq(from=10, to=100, by =10)
+mis = sapply(nt, FUN = ada)
+
+mis
+ind <- which.min(mis)
+nt[ind]
+#[1] 80
+
+# plot error rates vs the number of trees
+plot(nt, mis, xlab = "Number of trees", ylab = "Error rate", type = "l")
+
+
+
+### random forests
+# as.factor(Spam)~.
+# ntree: number of tree
+
+library(randomForest)
+
+rand <- function(nt){
+  fit <- randomForest(as.factor(Spam)~., data=train1, ntree=nt)
+  pred <- predict(fit, test1)   # probility %
+  t1 = table(true=test1$Spam, pred=pred)
+  mis1 = 1-sum(diag(t1))/sum(t1)
+  return(mis1)
+}
+
+nt = seq(from=10, to=100, by =10)
+mis1 = sapply(nt, FUN = rand)
+mis1
+
+ind1 <- which.min(mis1)
+nt[ind1]
+#[1] 90
+
+# plot error rates vs the number of trees
+plot(nt, mis, xlab = "Number of trees", ylab = "Error rate", type = "l", ylim = c(0.04,0.12),col="red")
+lines(nt, mis1, xlab = "Number of trees", ylab = "Error rate", col="blue")
+legend("topright",col=c("red","blue"),pch=1,legend=c("Adaboost","Random forests"))
+
+
+
+
+############# EXAMPLES
+
+fitb = blackboost(as.factor(Spam)~., data=train1, family=AdaExp(), 
+                 control=boost_control(mstop=10))
+# way 1: type="class"
+pred = predict(fitb, test1, type = "class")  
+
+# way 2: probility % 
+# pred = predict(fitb, test1) 
+# pred = as.integer(pred[,1]>0) # positive & negative
+
+t = table(true=test1$Spam, pred=pred)
+mis = 1-sum(diag(t))/sum(t)
+
+
+fit <- randomForest(as.factor(Spam)~., data=train1, ntree=10)
+pred <- predict(fit, test1)   # 0,1,...
+t1 = table(true=test1$Spam, pred=pred)
+mis1 = 1-sum(diag(t1))/sum(t1)
