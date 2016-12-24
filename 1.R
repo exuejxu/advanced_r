@@ -1,126 +1,131 @@
-### 2.3. compute the bagging regression tree
-# use the whole dataset
-### bagging regression tree.iterations=100
-library(tree)
-mse3 = c()
-for(B in 1:100){
-  data_pos <- sample(1:nrow(data), size=nrow(data), replace = T)
-  fittree = tree(Bodyfat_percent~., data = data[data_pos,])
-  pred = predict(fittree,newdata=data)
-  mse = mean((pred-data$Bodyfat_percent)^2)
-  mse3 = c(mse3, mse)
-} 
-
-mse3 #length 100
-hist(mse3)
-# upper bound of the squared error
-mean(mse3)
+###### Implement the EM algorithm 
+###### for mixtures of multivariate Benouilli distributions.
 
 
-####### Assignment 3 boosting regression tree analysis
-### 3.1. Interpret the plot resulting from the code below.
-library(mboost)
+set.seed(1234567890)
 
-bf=read.csv2("C:/Users/Sam/Desktop/machine learning/Lab2Block2/bodyfatregression.csv")
-m=blackboost(Bodyfat_percent~Waist_cm+Weight_kg, data=bf)
-mstop(m)
-cvf=cv(model.weights(m), type = "kfold")
-cvm=cvrisk(m, folds =cvf, grid = 1:100)## Use crossvalidation to find stopping time M
-plot(cvm)
-
-### 3.2. Estimate the squared error of the boosting regression tree.
-# boost_control defines no. of boosting iterations mstop.
-b=blackboost(Bodyfat_percent~Waist_cm+Weight_kg, data=train, 
-             control=boost_control(mstop=mstop(cvm)))
-pred <- predict (b, newdata = test) 
-mse3 = mean((pred-test$Bodyfat_percent)^2)
-mse3
-
-####### Assignment 4 evaluate the performance of Adaboost classification trees & random forests
-df <- read.csv2("C:/Users/Sam/Desktop/machine learning/Lab2 block2/spambase.csv")
-
-n1=dim(df)[1]
-set.seed(1234567890) 
-id=sample(1:n1, floor(n1*2/3)) 
-train1=df[id,] 
-test1=df[-id,] 
-
-### Adaboost classification trees
-library(mboost)
-# as.factor(Spam)~.
-# Specify the loss function corresponding to Adaboost
-# parameter: family=AdaExp()
-# mstop: an integer giving the number of initial boosting iterations.
-
-ada <- function(nt){
-  fitb = blackboost(as.factor(Spam)~., data=train1, family=AdaExp(), 
-                    control=boost_control(mstop=nt))   # 0,1,...
-  pred <- predict(fitb, test1, type="class")
-  t = table(true=test1$Spam, pred=pred)
-  mis = 1-sum(diag(t))/sum(t)
-  return(mis)
+# min change in log likelihood between two consecutive EM iterations
+min_change <- 0.1 
+N=1000 # number of training points
+D=10 # number of dimensions
+x <- matrix(nrow=N, ncol=D) # training data
+true_pi <- vector(length = 3) # true mixing coefficients
+true_mu <- matrix(nrow=3, ncol=D) # true conditional distributions
+true_pi=c(1/3, 1/3, 1/3)
+true_mu[1,]=c(0.5,0.6,0.4,0.7,0.3,0.8,0.2,0.9,0.1,1)
+true_mu[2,]=c(0.5,0.4,0.6,0.3,0.7,0.2,0.8,0.1,0.9,0)
+true_mu[3,]=c(0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5)
+plot(true_mu[1,], type="o", col="blue", ylim=c(0,1))
+points(true_mu[2,], type="o", col="red")
+points(true_mu[3,], type="o", col="green")
+# Producing the training data
+for(n in 1:N) {
+  k <- sample(1:3,1,prob=true_pi)
+  for(d in 1:D) {
+    x[n,d] <- rbinom(1,1,true_mu[k,d])
+  }
 }
+K=3 # number of guessed components
+z <- matrix(nrow=N, ncol=K) # fractional component assignments
+pi <- vector(length = K) # mixing coefficients
+mu <- matrix(nrow=K, ncol=D) # conditional distributions
 
-# tree number
-nt = seq(from=10, to=100, by =10)
-mis = sapply(nt, FUN = ada)
-
-mis
-ind <- which.min(mis)
-nt[ind]
-#[1] 80
-
-# plot error rates vs the number of trees
-plot(nt, mis, xlab = "Number of trees", ylab = "Error rate", type = "l")
-
-
-
-### random forests
-# as.factor(Spam)~.
-# ntree: number of tree
-
-library(randomForest)
-
-rand <- function(nt){
-  fit <- randomForest(as.factor(Spam)~., data=train1, ntree=nt)
-  pred <- predict(fit, test1)   # probility %
-  t1 = table(true=test1$Spam, pred=pred)
-  mis1 = 1-sum(diag(t1))/sum(t1)
-  return(mis1)
+# Random initialization of the paramters
+pi <- runif(K,0.49,0.51)
+pi <- pi / sum(pi)
+for(k in 1:K) {
+  mu[k,] <- runif(D,0.49,0.51)
 }
+pi
+mu
 
-nt = seq(from=10, to=100, by =10)
-mis1 = sapply(nt, FUN = rand)
-mis1
+pi_cur <- pi
+mu_cur <- mu
 
-ind1 <- which.min(mis1)
-nt[ind1]
-#[1] 90
+# max number of EM iterations
+max_it <- 100
+# log likelihood of the EM iterations
+llik <- vector(length = max_it) # log likelihood of the EM iterations
 
-# plot error rates vs the number of trees
-plot(nt, mis, xlab = "Number of trees", ylab = "Error rate", type = "l", ylim = c(0.04,0.12),col="red")
-lines(nt, mis1, xlab = "Number of trees", ylab = "Error rate", col="blue")
-legend("topright",col=c("red","blue"),pch=1,legend=c("Adaboost","Random forests"))
-
-
-
-
-############# EXAMPLES
-
-fitb = blackboost(as.factor(Spam)~., data=train1, family=AdaExp(), 
-                 control=boost_control(mstop=10))
-# way 1: type="class"
-pred = predict(fitb, test1, type = "class")  
-
-# way 2: probility % 
-# pred = predict(fitb, test1) 
-# pred = as.integer(pred[,1]>0) # positive & negative
-
-t = table(true=test1$Spam, pred=pred)
-mis = 1-sum(diag(t))/sum(t)
-
-
-fit <- randomForest(as.factor(Spam)~., data=train1, ntree=10)
-pred <- predict(fit, test1)   # 0,1,...
-t1 = table(true=test1$Spam, pred=pred)
-mis1 = 1-sum(diag(t1))/sum(t1)
+for(it in 1:max_it) {
+  plot(mu_cur[1,], type="o", col="blue", ylim=c(0,1))
+  points(mu_cur[2,], type="o", col="red")
+  points(mu_cur[3,], type="o", col="green")
+  #points(mu[4,], type="o", col="yellow")
+  Sys.sleep(0.5)
+  
+  # E-step: Computation of the fractional component assignments
+  
+  z <- list()
+  for(k in 1:3){
+    r1 = matrix(0, nrow = 1000, ncol=10)
+    for(n in 1:1000){
+      for(i in 1:10){
+        r1[n,i] =  mu_cur[k,i]^x[n, i] * (1-mu_cur[k,i])^(1-x[n, i])
+      }
+    }
+    #View(r1)
+    r11=1
+    for(i in 1:10){
+      r11 = r11 * r1[,i]
+    }
+    r11
+    #print(length(r11))
+    z[[k]] = pi_cur[k] * r11
+  }
+  z
+  zn1 = z[[1]]/ (z[[1]] + z[[2]] + z[[3]])
+  zn2 = z[[2]]/ (z[[1]] + z[[2]] + z[[3]])
+  zn3 = z[[3]]/ (z[[1]] + z[[2]] + z[[3]])
+  zn = list(zn1, zn2, zn3)
+  
+  
+  #Log likelihood computation.
+  
+  l1 = matrix(0, nrow = 1000, ncol=10)
+  l3 = c()
+  for(k in 1:3){
+    for(n in 1:1000){
+      for(i in 1:10){
+        l1[n,i] = x[n,i]*log(mu_cur[k,i]) + (1-x[n,i])*log((1-mu_cur[k,i]))
+      }
+    }
+    #View(l1)
+    # sum up all the dimension of D(i)
+    l2 = 0
+    for(i in 1:10){
+      l2 = l2 + l1[,i]
+    }
+    #print(l2)
+    l3[k] = log(pi[k]) + sum(l2*zn[[k]])
+  }
+  l3
+  llik[it]= sum(l3)
+  
+  cat("iteration: ", it, "log likelihood: ", llik[it], "\n")
+  flush.console()
+  # Stop if the lok likelihood has not changed significantly
+  if((it > 1) && (abs(llik[(it-1)]-llik[it]) <= 0.1)) break
+  
+  #M-step: ML parameter estimation from the data and fractional component assignments
+  # compute pi
+  pi_cur = c()
+  for(k in 1:3){
+    pi_cur[k] = mean(zn[[k]])
+  }
+  pi_cur
+  
+  # compute mu
+  mu_cur = matrix(0, ncol = 10, nrow = 3)
+  for(k in 1:3){
+    for(i in 1:10){
+      mu_cur[k,i] = sum(zn[[k]] * x[,i])/ sum(zn[[k]])
+    }
+  }
+  mu_cur
+  
+  
+}
+pi_cur
+mu_cur
+plot(llik[1:it], type="o")
