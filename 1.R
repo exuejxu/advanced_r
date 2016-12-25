@@ -1,65 +1,46 @@
 ### 1.2 implement LDA with proportional priors, (use only basic R functions)
-# inputs RW and CL and output Sex
+### 1.3 plot classsification with a decision boundary
+# Plot classifed data
+plot(data$RW[label], data$CL[label], col="blue", 
+     xlab = "Rear width", ylab = "Carapace length", 
+     main = "Classified data by LDA")
+points(data$RW[!label], data$CL[!label], col="red")
 
-# class set for input male & female for RW & CL
-index = (data$sex=="Male")
+# plot decision boundary
+range(data$CL)
+# [1] 14.7 47.6
+y = c(14:48)
+# wi[1] for CL,y, wi[2] for RW,x
+x = (w0i1-w0i2-(wi2[1]-wi1[1])*y)/(wi2[2]-wi1[2])
 
-RW1 = data$RW[index]   #male
-RW2 = data$RW[!index]  #female
+lines(x, y, lwd = 2)
 
-CL1 = data$CL[index]   #male
-CL2 = data$CL[!index]  #female
+### 1.4 plot classsification by logistic regression
+# use function glm(), ##family=binomial##
 
-nc1 = length(CL1)  #length(CL1)=length(RW1)
-nc2 = length(CL2)
+sex = c()
+class = glm(sex~CL+RW, family = "binomial", data = data)
+p = predict(class, type = "response")
+indexl = (p>=0.5)
+# p[indexm] = 1, p[!indexm] = 0
+# p = as.numeric(indexm)
 
-k = 2
 
-mu1 = c(mean(CL1),mean(RW1))
-mu2 = c(mean(CL2),mean(RW2))
+# Plot classified data using logistic regression
+# Plot classifed data
+plot(data$RW[indexl], data$CL[indexl], col="blue", 
+     xlab = "Rear width", ylab = "Carapace length", 
+     main = "Classified by logistic regression")
+points(data$RW[!indexl], data$CL[!indexl], col="red")
 
-# compute sigma1 of male, size: 2*2 for cl & rw
-sigma1 = matrix(0, nrow = 2, ncol = 2)   
-for (i in 1:length(CL1)){
-  xi = c(CL1[i], RW1[i])
-  temp = (xi-mu1)%*%(t(xi-mu1))
-  sigma1 = sigma1+temp
-}
-sigma1 = sigma1/nc1
+# plot decision boundary
+range(data$RW)
+#[1]  6.5 20.2
+x1 = c(6:21) #xlab: RW
 
-# compute sigma2 of female, size: 2*2 for cl & rw
-sigma2 = matrix(0, nrow = 2, ncol = 2)
-for (i in 1:length(CL2)){
-  xi = c(CL2[i], RW2[i])
-  temp = (xi-mu2)%*%(t(xi-mu2))
-  sigma2 = sigma2+temp
-}
-sigma2 = sigma2/nc2
+w = class$coefficients
+#(Intercept)          CL          RW 
+#13.616628      4.630747  -12.563893 
+y1 = (-w[1]-w[3]*x1)/w[2]
 
-sigma = (nc1*sigma1 + nc2*sigma2)/(nrow(data))
-
-# compute coefficients for two classes
-pihat1 = nc1/nrow(data) 
-
-w0i1 = -0.5*t(mu1)%*%solve(sigma)%*%mu1+log(pihat1)
-wi1 = solve(sigma)%*%mu1
-w0i1
-wi1
-
-pihat2 = nc2/nrow(data)  
-
-w0i2 = -0.5*t(mu2)%*%solve(sigma)%*%mu2+log(1-pihat2)
-wi2 = solve(sigma)%*%mu2
-w0i2
-wi2
-
-# Label data based on LDA 
-label = c()
-for (i in 1:nrow(data)){
-  x = c(data$CL[i], data$RW[i])
-  p1 = (w0i1 + t(wi1)%*%x)
-  p2 = (w0i2 + t(wi2)%*%x)
-  pmale = exp(p1)/(exp(p1)+exp(p2))
-  label[i] = (pmale>=0.5)
-}
-label
+lines(x1, y1, lwd = 2) #ylab: CL
