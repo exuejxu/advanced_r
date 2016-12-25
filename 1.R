@@ -1,46 +1,48 @@
-### 1.2 implement LDA with proportional priors, (use only basic R functions)
-### 1.3 plot classsification with a decision boundary
-# Plot classifed data
-plot(data$RW[label], data$CL[label], col="blue", 
-     xlab = "Rear width", ylab = "Carapace length", 
-     main = "Classified data by LDA")
-points(data$RW[!label], data$CL[!label], col="red")
+##### Assignment 2. Analysis of credit scoring
+df <- read.csv("C:/Users/Sam/Desktop/machine learning/lab3/creditscoring.csv")
 
-# plot decision boundary
-range(data$CL)
-# [1] 14.7 47.6
-y = c(14:48)
-# wi[1] for CL,y, wi[2] for RW,x
-x = (w0i1-w0i2-(wi2[1]-wi1[1])*y)/(wi2[2]-wi1[2])
+### 2.1 Import the data to R and divide into training/validation/test as 50/25/25
+n=dim(df)[1]
+set.seed(12345) 
+id=sample(1:n, floor(n*0.5)) 
+train=df[id,] 
 
-lines(x, y, lwd = 2)
+id1=setdiff(1:n, id)
+set.seed(12345) 
+id2=sample(id1, floor(n*0.25)) 
+valid=df[id2,]
 
-### 1.4 plot classsification by logistic regression
-# use function glm(), ##family=binomial##
+id3=setdiff(id1,id2)
+test=df[id3,] 
 
-sex = c()
-class = glm(sex~CL+RW, family = "binomial", data = data)
-p = predict(class, type = "response")
-indexl = (p>=0.5)
-# p[indexm] = 1, p[!indexm] = 0
-# p = as.numeric(indexm)
+### 2.2 Fit a decision tree to the training data
+library(tree)
 
+# Fit a decision tree using "Deviance" split =
+fitDe = tree(good_bad~., data = train, split = "deviance")
 
-# Plot classified data using logistic regression
-# Plot classifed data
-plot(data$RW[indexl], data$CL[indexl], col="blue", 
-     xlab = "Rear width", ylab = "Carapace length", 
-     main = "Classified by logistic regression")
-points(data$RW[!indexl], data$CL[!indexl], col="red")
+# misclassification rates for the training and test data
+yhat1D = predict(fitDe, newdata = train, type = "class")
+tab1D = table(true=train$good_bad, pred=yhat1D)
+mis1D = 1-sum(diag(tab1D))/sum(tab1D)
+tab1D
+mis1D 
+Yfit2D = predict(fitDe, newdata = test, type = "class")
+tab2D = table(true=test$good_bad, pred=Yfit2D)
+mis2D = 1-sum(diag(tab2D))/sum(tab2D)
+tab2D
+mis2D 
 
-# plot decision boundary
-range(data$RW)
-#[1]  6.5 20.2
-x1 = c(6:21) #xlab: RW
+# Fit a decision tree using "Gini" split = 
+fitGi = tree(good_bad~., data = train, split = "gini")
 
-w = class$coefficients
-#(Intercept)          CL          RW 
-#13.616628      4.630747  -12.563893 
-y1 = (-w[1]-w[3]*x1)/w[2]
-
-lines(x1, y1, lwd = 2) #ylab: CL
+yhat1G = predict(fitGi, newdata = train, type = "class")
+tab1G = table(true=train$good_bad, pred=yhat1G)
+mis1G = 1-sum(diag(tab1G))/sum(tab1G)
+tab1G
+mis1G
+yhat2G = predict(fitGi, newdata = test, type = "class")
+tab2G = table(true=test$good_bad, pred=yhat2G)
+mis2G = 1-sum(diag(tab2G))/sum(tab2G)
+tab2G
+mis2G
