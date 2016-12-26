@@ -1,56 +1,53 @@
-mis
+###### Assignment 1. High-dimensional methods
+data0 = read.csv2("C:/Users/Sam/Desktop/machine learning/lab3 block2/data.csv")
 
-### 2.4 Classification using Naive Bayes
-library(MASS)
-library(e1071)
 
-fitNB = naiveBayes(good_bad~., train)
+### 1.1. Divide data into training and test sets (70/30) without scaling.
+n=dim(data0)[1]
+set.seed(12345)
+id=sample(1:n, floor(n*0.7)) 
+train=data0[id,]
+test=data0[-id,]
 
-# training data
-yhatNB = predict(fitNB, newdata = train)
-t1 = table(true=train$good_bad, pred=yhatNB)
-misNB1 = 1-sum(diag(t1))/sum(t1)
-t1
-misNB1
+# Perform nearest shrunken centroid classification of training data
+data=as.data.frame(train) #with scaling: data=as.data.frame(scale(data)) 
+data$Conference=as.factor(train$Conference) 
 
-# test data
-yhatNBt = predict(fitNB, newdata = test)
-t2 = table(true=test$good_bad,pred=yhatNBt)
-misNB2 = 1-sum(diag(t2))/sum(t2)
-t2
-#      pred
-#true   bad good
-#bad   46   30
-#good  49  125
-misNB2
+library(pamr)
+rownames(data)=1:nrow(data)
+# predictors
+x=as.matrix(t(data[,-4703])) 
+# target
+y=data[[4703]] #data$Conference
 
-### 2.5 Repeat Naive Bayes by using loss matrix
-# position of good/bad reversed!!!
+mydata=list(x=x,y=as.factor(y),geneid=as.character(1:nrow(x)), genenames=rownames(x))
+model=pamr.train(mydata,threshold=seq(0,4, 0.1))
 
-# training data
-library(MASS)
-library(e1071)
+# threshold is chosen by cross-validation.
+cvmodel=pamr.cv(model,mydata)
+# find value of threshold with min error 1.4
+print(cvmodel) 
+# centroid plot
+pamr.plotcv(cvmodel) 
 
-fitNB = naiveBayes(good_bad~., train)
+# centroid plot by the optimal threshold
+pamr.plotcen(model, mydata, threshold=1.3)  
+pamr.plotcen(model, mydata, threshold=1.4) 
 
-prob1 = predict(fitNB, newdata = train) #get class
-prob1
+# get features' name list
+a=pamr.listgenes(model,mydata,threshold=1.4) 
+cat(paste(colnames(data)[as.numeric(a[,1])], collapse='\n' ) )
 
-classLoss <- function(fit, train){
-  p <- predict(fit, newdata=train, type="raw") #get probabilty value
-  #              bad         good
-  #[1,] 7.317159e-01 0.2682840747
-  #[2,] 4.136823e-02 0.9586317716
-  return(factor(p[,2]/p[,1] > (10-0)/(1-0), labels=c("bad", "good")))
-}
-Yfit.train <- classLoss(fitNB, train)
-Yfit.test <- classLoss(fitNB, test)
-t3.train <- table(true=train$good_bad, pred=Yfit2.train)
-t3.test <- table(true=test$good_bad, pred=Yfit2.test)
-t3.train
-t3.test
+# test error for test dataset
+test$Conference=as.factor(test$Conference) 
+rownames(test)=1:nrow(test)
+# predictors
+xt=as.matrix(t(test[,-4703])) 
+# target
+yt=test[[4703]] #data$Conference
 
-mis.train <- mean(Yfit2.train != train$good_bad)
-mis.test <- mean(Yfit2.test != test$good_bad)
-mis.train
-mis.test
+pred_test <- pamr.predict(model, newx = xt, threshold = 1.4, type = "class")
+confusion_test <- table("true" = yt, "predicted" = pred_test)
+test_error <- 1 - sum(diag(confusion_test))/sum(confusion_test)
+test_error
+# 0.1
