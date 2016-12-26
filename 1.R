@@ -1,40 +1,56 @@
-mis2G
-
-### 2.3 Selecting optimal tree by train/validation
-fitDe = tree(good_bad~., data = train, split = "deviance")
-
-# rep(0,x) x decided by me, usually 9
-trainScore = rep(0,15)
-valiScore = rep(0,15)
-for (i in 2:15){
-  prunedTree = prune.tree(fitDe, best = i)
-  pred = predict(prunedTree, newdata = valid, type = "tree")
-  trainScore[i] = deviance(prunedTree)
-  valiScore[i] = deviance(pred)
-}
-
-plot(2:15, trainScore[2:15], type = "b", col = "red", ylim = c(0, 600))
-points(2:15, valiScore[2:15], type = "b", col = "blue")
-
-# optimal no. of leaves
-# as it is from 2 so, 3+1=4
-which.min(valiScore[2:15]) + 1
-# 4
-
-
-# report its depth and the variables used by the tree.
-# best = optimal no. of leaves
-finalTree = prune.tree(fitDe, best = 4)
-finalTree
-summary(finalTree)
-
-plot(finalTree)
-text (finalTree , pretty = 0)
-
-# Estimate the misclassification rate for the test data.
-yhat = predict(finalTree, newdata = test, type = "class")
-tab = table(ture=test$good_bad, pred=yhat)
-mis = 1-sum(diag(tab))/sum(tab)
-tab
 mis
 
+### 2.4 Classification using Naive Bayes
+library(MASS)
+library(e1071)
+
+fitNB = naiveBayes(good_bad~., train)
+
+# training data
+yhatNB = predict(fitNB, newdata = train)
+t1 = table(true=train$good_bad, pred=yhatNB)
+misNB1 = 1-sum(diag(t1))/sum(t1)
+t1
+misNB1
+
+# test data
+yhatNBt = predict(fitNB, newdata = test)
+t2 = table(true=test$good_bad,pred=yhatNBt)
+misNB2 = 1-sum(diag(t2))/sum(t2)
+t2
+#      pred
+#true   bad good
+#bad   46   30
+#good  49  125
+misNB2
+
+### 2.5 Repeat Naive Bayes by using loss matrix
+# position of good/bad reversed!!!
+
+# training data
+library(MASS)
+library(e1071)
+
+fitNB = naiveBayes(good_bad~., train)
+
+prob1 = predict(fitNB, newdata = train) #get class
+prob1
+
+classLoss <- function(fit, train){
+  p <- predict(fit, newdata=train, type="raw") #get probabilty value
+  #              bad         good
+  #[1,] 7.317159e-01 0.2682840747
+  #[2,] 4.136823e-02 0.9586317716
+  return(factor(p[,2]/p[,1] > (10-0)/(1-0), labels=c("bad", "good")))
+}
+Yfit.train <- classLoss(fitNB, train)
+Yfit.test <- classLoss(fitNB, test)
+t3.train <- table(true=train$good_bad, pred=Yfit2.train)
+t3.test <- table(true=test$good_bad, pred=Yfit2.test)
+t3.train
+t3.test
+
+mis.train <- mean(Yfit2.train != train$good_bad)
+mis.test <- mean(Yfit2.test != test$good_bad)
+mis.train
+mis.test
