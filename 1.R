@@ -1,69 +1,40 @@
-####### Assignment 2. Principal components
-data <- read.csv2("C:/Users/Sam/Desktop/machine learning/lab4/NIRSpectra.csv")
-
-### 2.1 Conduct a standard PCA
-# by using the feature space
-# plot to explain how much variation is explained by each feature.
-
-data1=data
-data1$Viscosity=c()
-res=prcomp(data1)
-lambda=res$sdev^2
-#eigenvalues
-lambda
-#proportion of variation
-# Select the minimal number of components 
-# explaining at least 99% of the total variance.
-sprintf("%2.3f",lambda/sum(lambda)*100)
-screeplot(res)
-
-# Select the minimal number of components 
-# explaining at least 99% of the total variance.
-# scores plot in the coordinates (PC1, PC2)
-plot(res$x[,1], res$x[,2])
 
 
-### 2.2 Trace plots for the loadings of PC1 & PC2.
+#####################################
+#####################################
+# Estimate MSE of the optimal model by using the test set. 
+pcr.fit1 = pcr(Viscosity~., ncomp=40,  data = train, scale = FALSE, validation = "none")  # 40######## 30
+summary(pcr.fit1)
 
-#U = loadings(res)
-U=res$rotation
-head(U)
-
-plot(U[,1], main="Traceplot, PC1")
-plot(U[,2],main="Traceplot, PC2")
+y1 = predict(pcr.fit1, newdata = test)
+mse = mean((y1-test$Viscosity)^2,na.rm= TRUE)
+mse
 
 
-### 2.3 ICA
-# Perform Independent Component Analysis of PC1 & PC2, n.comp=2
+### 2.5 Divide the data into training(50%) and test(50%) sets.
+n=dim(data)[1]
 set.seed(12345) 
-library(fastICA)
-a = fastICA(data1, n.comp=2,alg.typ = "parallel", fun = "logcosh", alpha = 1, 
-            method = "R", row.norm = FALSE, maxit = 200, tol = 0.0001, verbose = TRUE)
-# Report matrix W
-a$W
+id=sample(1:n, floor(n*0.5)) 
+train=data[id,] 
+test=data[-id,]
 
-# Explain the roll of the matrix w'= k.w
-Wp = a$K%*%a$W
-Wp
-
-# present its columns in form of the trace plots.
-plot(Wp[,1], main = "Traceplot, PC1")
-plot(Wp[,2], main = "Traceplot, PC2")
-
-# Make the score plot of the first two latent features
-plot(a$S[,1], a$S[,2])
-
-
-### 2.4 Fit a PCR model to the training data 
-# where number of components is selected by cross validation.
+#### 2.6 use PLS model
 library(pls)
 set.seed(12345)
 
-# where number of components is selected by cross validation.
-pcr.fit = pcr(Viscosity~., data = data, scale = FALSE, validation = "CV")
-summary(pcr.fit)
+# Estimate MSE of the optimal model by using the test set.
+pls.fit = plsr(train$Viscosity~., data = train, scale = FALSE, validation = "CV")
+summary(pls.fit)
 
-# Plot MSPE, the dependence of the mean-square predicted error
-validationplot(pcr.fit, val.type = "MSEP")
+# Plot MSPE
+validationplot(pls.fit, val.type = "MSEP")
+
+# Estimate MSE of the optimal model by using the test set. 
+pls.fit2 = plsr(Viscosity~., ncomp=11,  data = train, scale = FALSE, validation = "none")
+summary(pls.fit2)
+y2 = predict(pls.fit2, newdata = test)
+mse2 = mean((y2-test$Viscosity)^2,na.rm= TRUE)
+mse2
+
 
 
