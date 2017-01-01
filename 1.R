@@ -1,4 +1,3 @@
-#CL2_ASS1
 library(MASS)
 
 # Ridge regression by using n-fold cross-validation
@@ -54,16 +53,7 @@ RidgeRegre = function (X, Y, Lam, Nfolds){
     sqsum = sum((validY1-estY)^2)
     CV = CV+sqsum
     
-    
-   valInd = NULL
-   validX = NULL
-   trainX = NULL
-   validY = NULL
-   trainY = NULL
-   validX1 = NULL
-   trainX1 = NULL
-   validY1 = NULL
-   trainY1 = NULL
+
   }  
 
   # Return CV score
@@ -87,5 +77,4 @@ for (jj in 1:length(L)){
   CV[jj] =  RidgeRegre(as.matrix(dataX), dataY, L[jj], Nfolds)
 }
 
- plot(L,CV, col="red", xlab = "Lambda values", ylab = "CV scores") 
- 
+plot(L,CV, col="red", xlab = "Lambda values", ylab = "CV scores") 
