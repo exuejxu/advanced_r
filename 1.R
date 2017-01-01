@@ -1,80 +1,59 @@
-library(MASS)
+# Import data and plot a scatter chart of LMR versus day
+mydata = read.csv2("mortality_rate.csv", sep = ",", dec = ".")
+mydata$LMR = log(mydata$Rate)
+plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
 
-# Ridge regression by using n-fold cross-validation
-RidgeRegre = function (X, Y, Lam, Nfolds){
-  
-  N = length(Y)
-  K = ceiling(N/Nfolds)
-  
-  #X = scale(X, scale = FALSE)
-  #Y = scale(Y, scale = FALSE)
-  
-  # make n subsets of data
-  indxFolds = numeric(N)
-  for (kk in 1:K-1){
-    set.seed(12345)
-    indxFolds[((kk-1)*Nfolds+1):(kk*Nfolds)] = sample(c(1:Nfolds))
+# Implement a function performing NW kernel smoothing with Epanechnikov kernel
+NWksmoothing = function(X, Y, Xtest, lambda){
+ 
+  n = length(Xtest)
+  pref = numeric(n)
+  for (i in 1:n){
+    dis = abs(X-Xtest[i])
+    Kl = numeric(length(dis))
+    for (j in 1: length(dis)){
+      if (dis[j]/lambda<1){
+        Kl[j] =3/4*(1-(dis[j]^2)/(lambda^2))
+      }else{
+        Kl[j] = 0
+      }
+           
+    }
+    pref[i] = sum(Kl*Y)/sum(Kl)
   }
-  set.seed(12345)
-  indxFolds[((K-1)*Nfolds+1):N] = sample(c(1:Nfolds), N-(K-1)*Nfolds)
-  #indxFolds = c(1,2,3,4,5,6,7,8,9,10,10,10,10,10,10,10)
-  CV = 0;
-
-  #model fit for each fold
-  for (ii in 1:Nfolds){
-    
-    valInd = (indxFolds==ii)
-    
-    # divide data into training data and validation data
-    validX = X[valInd,]
-    trainX = X[! valInd,]
-    validY = Y[valInd]
-    trainY = Y[! valInd]
-    
-    trainX1 = scale(trainX, center = TRUE, scale = FALSE)
-    trainY1 = scale(trainY, center = TRUE, scale = FALSE)
-    if (is.null(dim(validX))){
-      validX1 = validX-colMeans(trainX)
-    }
-    else
-    {
-      validX1 = scale((validX),(colMeans(trainX)), FALSE)
-    }
-    
-    validY1 = validY-mean(trainY)
-      
-    # Estimate w
-    I = diag(dim(trainX1)[2])
-    estW = ((solve((t(trainX1) %*% trainX1) + Lam *I)) %*% t(trainX1) )%*%trainY1
-    # Prediction
-    estY = validX1 %*% estW
-    
-    #calculate sum of cross-validation score
-    sqsum = sum((validY1-estY)^2)
-    CV = CV+sqsum
-    
-
-  }  
-
-  # Return CV score
-  return(CV/N)
+  return(pref)
 }
 
-# load data
-data = unname(as.matrix(longley))
-dataX = data[,1:(dim(longley)[2]-1)]
-dataY = matrix(longley$Employed)
+# Test the function 
+minR = min(mydata$Day)
+maxR = max(mydata$Day)
+Xtest = seq(from = minR, to = maxR, by = 0.1)
+lambda = 10
+Ytest = NWksmoothing(mydata$Day, mydata$LMR, Xtest, lambda)
+plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
+points(Xtest, Ytest, pch = 20, col = "red")
+Y = NWksmoothing(mydata$Day, mydata$LMR, mydata$Day, lambda = 10)
+MSE = mean((Y-mydata$LMR)^2)
 
-# Lambda 
-L = c(1:7)
+# Fit LMR using SVM for regression with RBF kernel
+library(kernlab)
+set.seed(12345)
+kfit = ksvm(LMR~Day, data = mydata, kernel = "rbfdot", epsilon = 0.01)
+Y1 = predict(kfit, mydata)
+MSE1 = mean((Y1-mydata$LMR)^2)
+ndata = data.frame(Day = Xtest)
+Y2 = predict(kfit, newdata = ndata)
+plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
+points(Xtest, Y2, pch = 20, col = "red")
 
-# Number of folds
-Nfolds = 10
-CV = numeric(length(L))
-
-for (jj in 1:length(L)){
-  # Calculate cross validation value for each lambda
-  CV[jj] =  RidgeRegre(as.matrix(dataX), dataY, L[jj], Nfolds)
-}
-
-plot(L,CV, col="red", xlab = "Lambda values", ylab = "CV scores") 
+# Normal kernel in fancova
+library(fANCOVA)
+x = mydata$Day
+y = mydata$LMR
+fit1 = loess.as(x,y, degree = 1, criterion = "gcv", family = "gaussian" )
+summary(fit1)
+Yf = predict(fit1, Xtest, se = TRUE)
+plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
+points(Xtest, Yf$fit, pch = 20, col = "red")
+points(Xtest, Yf$fit+2*Yf$se.fit, pch = ".", col = "green")
+points(Xtest, Yf$fit-2*Yf$se.fit, pch = ".", col = "green")
