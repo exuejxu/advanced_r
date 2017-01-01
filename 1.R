@@ -50,10 +50,12 @@ points(Xtest, Y2, pch = 20, col = "red")
 library(fANCOVA)
 x = mydata$Day
 y = mydata$LMR
+# generalized cross-validation (gcv)
 fit1 = loess.as(x,y, degree = 1, criterion = "gcv", family = "gaussian" )
 summary(fit1)
 Yf = predict(fit1, Xtest, se = TRUE)
 plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
 points(Xtest, Yf$fit, pch = 20, col = "red")
+# Confidence band
 points(Xtest, Yf$fit+2*Yf$se.fit, pch = ".", col = "green")
 points(Xtest, Yf$fit-2*Yf$se.fit, pch = ".", col = "green")
