@@ -1,61 +1,61 @@
-# Import data and plot a scatter chart of LMR versus day
-mydata = read.csv2("mortality_rate.csv", sep = ",", dec = ".")
-mydata$LMR = log(mydata$Rate)
-plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
+#CL5_ASS2
+mydata = read.csv2("olive.csv", sep = ",", stringsAsFactors = FALSE)
 
-# Implement a function performing NW kernel smoothing with Epanechnikov kernel
-NWksmoothing = function(X, Y, Xtest, lambda){
- 
-  n = length(Xtest)
-  pref = numeric(n)
-  for (i in 1:n){
-    dis = abs(X-Xtest[i])
-    Kl = numeric(length(dis))
-    for (j in 1: length(dis)){
-      if (dis[j]/lambda<1){
-        Kl[j] =3/4*(1-(dis[j]^2)/(lambda^2))
-      }else{
-        Kl[j] = 0
-      }
-           
-    }
-    pref[i] = sum(Kl*Y)/sum(Kl)
+# Construct variable R2
+R2 = numeric(dim(mydata)[1])
+for (i in 1: length(R2)){
+  if(mydata$Region[i]==2){
+    R2[i] = 1
+  }else{
+    R2[i] = 0
   }
-  return(pref)
 }
 
-# Test the function 
-minR = min(mydata$Day)
-maxR = max(mydata$Day)
-Xtest = seq(from = minR, to = maxR, by = 0.1)
-lambda = 10
-Ytest = NWksmoothing(mydata$Day, mydata$LMR, Xtest, lambda)
-plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
-points(Xtest, Ytest, pch = 20, col = "red")
-Y = NWksmoothing(mydata$Day, mydata$LMR, mydata$Day, lambda = 10)
-MSE = mean((Y-mydata$LMR)^2)
+# Plot Oleic versus Linoleic and color the observations by the value in R2
+ind = (R2==1)
+plot(mydata$linoleic[ind], mydata$oleic[ind], col = "blue", xlab = "Linoleic", ylab = "Oleic", xlim = c(500,1500), ylim = c(6000,8500))
+points(mydata$linoleic[!ind], mydata$oleic[!ind], col = "red")
 
-# Fit LMR using SVM for regression with RBF kernel
+# Fit tie SVM models in which R2 is response and Oleic and Linoleic are predictors 
+data1 = data.frame(Region = R2, Oleic = mydata$oleic, Linoleic = mydata$linoleic)
 library(kernlab)
-set.seed(12345)
-kfit = ksvm(LMR~Day, data = mydata, kernel = "rbfdot", epsilon = 0.01)
-Y1 = predict(kfit, mydata)
-MSE1 = mean((Y1-mydata$LMR)^2)
-ndata = data.frame(Day = Xtest)
-Y2 = predict(kfit, newdata = ndata)
-plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
-points(Xtest, Y2, pch = 20, col = "red")
 
-# Normal kernel in fancova
-library(fANCOVA)
-x = mydata$Day
-y = mydata$LMR
-# generalized cross-validation (gcv)
-fit1 = loess.as(x,y, degree = 1, criterion = "gcv", family = "gaussian" )
-summary(fit1)
-Yf = predict(fit1, Xtest, se = TRUE)
-plot(mydata$Day, mydata$LMR, col = "blue", xlab = "Day", ylab = "LMR")
-points(Xtest, Yf$fit, pch = 20, col = "red")
-# Confidence band
-points(Xtest, Yf$fit+2*Yf$se.fit, pch = ".", col = "green")
-points(Xtest, Yf$fit-2*Yf$se.fit, pch = ".", col = "green")
+# Linear kernal
+set.seed(12345)
+fit1 = ksvm(Region~., data = data1, type = "C-svc",kernel="vanilladot")
+Y1 = predict(fit1)
+tab1 = table(data1$Region, Y1)
+plot(fit1, data = data1)
+mis1 = 1-sum(diag(tab1))/sum(tab1)
+
+# RBF kernel
+set.seed(12345)
+fit2 = ksvm(Region~., data = data1, type = "C-svc",kernel="rbfdot")
+Y2 = predict(fit2)
+tab2 = table(data1$Region, Y2)
+plot(fit2, data = data1)
+mis2 = 1-sum(diag(tab2))/sum(tab2)
+
+# RBF kernel with C=100
+set.seed(12345)
+fit3 = ksvm(Region~., data = data1, type = "C-svc",kernel="rbfdot", C = 100)
+Y3 = predict(fit3)
+tab3 = table(data1$Region, Y3)
+plot(fit3, data = data1)
+mis3 = 1-sum(diag(tab3))/sum(tab3)
+
+# RBF kernel sigma = 10
+set.seed(12345)
+fit4 = ksvm(Region~., data = data1, type = "C-svc",kernel="rbfdot", kpar = list(sigma=10))
+Y4 = predict(fit4)
+tab4 = table(data1$Region, Y4)
+plot(fit4, data = data1)
+mis4 = 1-sum(diag(tab4))/sum(tab4)
+
+
+# SVM with spoc-svc and linear kernel
+data2 = data.frame(Region = mydata$Region, Palmitic = mydata$palmitic, Palmitoleic = mydata$palmitoleic, Stearic = mydata$stearic, Oleic = mydata$oleic, Linoleic = mydata$linoleic, Linolenic = mydata$linolenic, Arachidic = mydata$arachidic, Eicosenoic = mydata$eicosenoic)
+fit5 = ksvm(Region~., data = data2, type = "spoc-svc", kernel="vanilladot", cross = 10)
+Y5 = predict(fit5)
+tab5 = table(data2$Region, Y5)
+mis5 = 1-sum(diag(tab5))/sum(tab5)
