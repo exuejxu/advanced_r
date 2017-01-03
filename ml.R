@@ -1,3 +1,4 @@
+1
 ###### Assignment 3
 mydata = read.csv("C:/Users/Sam/Desktop/machine learning/old exam/wine.csv")
 View(mydata)
