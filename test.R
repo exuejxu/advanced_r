@@ -1,8 +1,22 @@
-## Example due to Thomas Ericsson in his Numerical Analysis course at Chalmers
-f1<-function(x){(x-1)^6}
-f2<-function(x){1-6*x+15*x^2-20*x^3+15*x^4-6*x^5+x^6}
-x<-seq(from=0.995,to=1.005,by=0.0001)
-y1<-f1(x)
-y2<-f2(x)
-plot(x,y1,pch=19,cex=0.5,ylim=c(-5*10^(-15),20*10^(-15)),main="Two ways to calculate (x-1)^6",xlab="x",ylab="y")
-points(x,y2,pch=18,cex=0.8)
+## from ?optmize
+require(graphics)
+     
+f <- function (x, a) (x - a)^2
+xmin <- optimize(f, c(0, 1), tol = 0.0001, a = 1/3)
+print(xmin)
+     
+## See where the function is evaluated:
+optimize(function(x) x^2*(print(x)-1), lower = 0, upper = 10)
+     
+## "wrong" solution with unlucky interval and piecewise constant f():
+f  <- function(x) ifelse(x > -1, ifelse(x < 4, exp(-1/abs(x - 1)), 10), 10)
+fp <- function(x) { print(x); f(x) }
+     
+plot(f, -2,5, ylim = 0:1, col = 2)
+xmin1<-optimize(fp, c(-4, 20))   # doesn't see the minimum
+print("sssssssssssssssssssssssss")
+print(xmin1)
+print("=========================")
+xmin2<-optimize(fp, c(-7, 20))   # ok
+print("sssssssssssssssssssssssss")
+print(xmin2)
