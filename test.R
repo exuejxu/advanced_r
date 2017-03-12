@@ -1,11 +1,18 @@
-## from ?optim
-## "wild" function , global minimum at about -15.81515
-fw <- function (x)
-         10*sin(0.3*x)*sin(1.3*x^2) + 0.00001*x^4 + 0.2*x+80
-plot(fw, -50, 50, n = 1000, main = "optim() minimising 'wild function'")
-# method = c("Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent")     
-res <- optim(50, fw, method = "SANN",lower = -Inf, upper = Inf, control = list(maxit = 20000, temp = 20, parscale = 20), hessian = FALSE)
-# res$par= -15.8144, res$value=67.47249, res$$counts["function"]=20000,res$$counts["gradient"]=NA, res$convergence=0 (did!), res$message=NULL
+fthreebits<-function(k,s,L,N){
+    X0<-4*s+1;a<-8*k+5;m<-2^L;X<-X0
+    for (i in 1:N){
+	print(c(X,rev(intToBits(X)[1:5])))
+	X<-(a*X)%%m ##c=0
+    }
+}
+fthreebits(2,3,8,10)
 
-
+fCongGenGrid<-function(a,m,c,X0,N){
+    X<-X0
+    vU<-rep(X0,N)
+    for (i in 1:N){vU[i]<-X;X<-(a*X+c)%%m}
+    vU<-vU/m
+    plot(vU[1:(N-1)],vU[2:N],pch=19,cex=0.8,main="",xlab="Xk/m",ylab="Xk/(m+1)")
+}
+fCongGenGrid(a=17,m=131,c=8,X0=4,N=200)
 
