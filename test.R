@@ -1,27 +1,49 @@
+library('lattice')
 
-	    
-f.MCMC.Gibbs<-function(nstep,X0,vmean,mVar){
-    vN<-1:nstep
-    d<-length(vmean)
-    mX<-matrix(0,nrow=nstep,ncol=d)
-    mX[1,]<-X0 # starting point
-    
-    for(i in 2:nstep){
-      X<-mX[i-1,] # each sample point
-      Y<-rep(0,d) # each dimension
-      # conditional dist
-      Y[1]<-rnorm(1,mean=vmean[1]+mVar[1,1]%/%mVar[-1,-1]%*%mVar[1,-1]%*%(X[2:d]-vmean[-1]),sd=sqrt((mVar[1,1]-mVar[1,-1]%*%mVar[-1,1])%*%(mVar[-1,-1])))
-      for(j in 2:(d-1)){
-        Y[j]<-rnorm(1,mean=vmean[j]+(mVar[j,j]%*%mVar[-j,-j]%*%mVar[j,-j]%*%(c(Y[1:(j-1)],X[(j+1):d])-vmean[-j])),sd=sqrt(mVar[j,j]-mVar[j,-j]%*%solve(mVar[-j,-j])%*%mVar[-j,j]))
-      }
-      Y[d]<-rnorm(1,mean=vmean[d]+(mVar[d,d]%*%mVar[-d,-d]%*%mVar[d,-d]%*%(Y[1:(d-1)]-vmean[-d])),sd=sqrt(mVar[d,d]-mVar[d,-d]%*%solve(mVar[-d,-d])%*%mVar[-d,d]))
-      mX[i,]<-Y
-    }
-    mX
+f <- Vectorize( function (x) {
+    x^2 / exp(x) - 2 * exp(-9 * sin(x) / (x^2 + x + 1) )
+}, 'x')
+
+crossover <- function( x, y ) {  (x + y)/2  }
+mutate <- function( x ) { (x^2) %% 30 }
+
+## Plot f
+plotf <- function (points) {
+    xs <- seq(0, 30, by=0.02)
+    ys <- f(xs)
+
+    xyplot(ys~xs,
+           panel = function (x, y) {
+               llines(x, y, col = 1)
+               for (p in points) {
+                   panel.xyplot(p, f(p), pch = 20)
+               }
+           })
 }
 
-vmean<-c(1,2)
-mVar<-rbind(c(1,0.5),c(0.5,1))
-nstep<-200
-X0<-c(10,10)
-mX<-f.MCMC.Gibbs(nstep,X0,vmean,mVar)
+gen <- function (maxiter, mutprob, initpop = seq(0, 30, by = 5)) {
+    pop <- initpop
+    vals <- f(pop)
+
+    maxY <- numeric(maxiter)
+    maxX <- numeric(maxiter)
+
+    for (i in 1:maxiter) {
+        parent_ind <- sample(1:length(pop), size = 2)
+        victim_ind <- which.min( vals )
+        kid <- crossover( pop[parent_ind[1]], pop[parent_ind[2]] )
+        kid <- ifelse( runif(1) <= mutprob, mutate(kid), kid )
+        pop[ victim_ind ] <- kid
+        vals[ victim_ind ] <- f( kid )
+
+        maxY[i] <- max(vals)
+        maxX[i] <- pop[which.max(pop)]
+    }
+
+    list(
+        maxX = maxX,
+        maxY = maxY,
+        pop = pop,
+        bestX = pop[which.max(vals)],
+        bestY = vals[which.max(vals)])
+}
