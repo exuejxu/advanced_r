@@ -1,194 +1,106 @@
-#
-library(mvtnorm)
 
-### 1. Poisson regression - the MCMC way.
-dat = read.table("C:/Users/Sam/Desktop/732A91 Bayesian Learning/Module 4 - Model Inference and Variable Selection/eBayNumberOfBidderData.dat",
-                  header = T)
 
-### 1(a) Obtain the maximum likelihood estimator of beta 
-### in the Poisson regression model
+#### Question 1: Principal components ####
+dat = read.table("C:/732A97 Multivariate Statistical Methods/lab/T1-9.dat", 
+                 header=F)
+### 1a
+R = cor(dat[,2:8])
+R
+eigen(R)
 
-# [Hint: glm() adds its own intercept
-# so don’t input the covariate Const].
-# added a zero in the model so that R doesn’t add an extra intercept
-# (we already have an intercept term from the Constant feature).
+### 1b
+# standarized data
+mu = colMeans(dat[,2:8])
+sd = sapply(dat[,2:8], sd)
 
-fit <- glm(nBids ~ 0 + ., data=dat, family=poisson)
-fit
-
-### 1(b) Bayesian analysis of the Poisson regression
-x = as.matrix(dat[,-1])
-y = as.vector(dat$nBids)
-
-covNames <- names(dat)[2:length(names(dat))]
-nPara <- ncol(x)
-
-# prior
-mu <- as.vector(rep(0,nPara)) # Prior mean vector
-Sigma <- 100*solve(t(x)%*%x)
-
-# Log Posterior
-LogPostPoisson <- function(betaVect,y,X,mu,Sigma){
-  
-  nPara <- length(betaVect)
-  linPred <- X%*%betaVect
-  
-  # log-likelihood of Possion Regression                                    
-  logLik <- sum(y*linPred - exp(linPred)) 
-  #drop(no beta): -log(factorial(y))
-  
-  # prior
-  # library(mvtnorm)
-  logPrior <- dmvnorm(betaVect, mu, Sigma, log=TRUE)
-  
-  # add the log prior and log-likelihood together to get log posterior
-  return(logLik + logPrior)
+z = dat[,2:8]
+for(j in 1:dim(dat[,2:8])[2]){
+  z[,j] = (dat[,2:8][,j] - mu[j]) / sd[j]
 }
 
-initVal <- as.vector(rep(0,ncol(x))) #as it is vector,no need t(x)%*%initVal
-OptimResults<-optim(initVal,LogPostPoisson,gr=NULL,
-                    y,x,mu,Sigma,
-                    method=c("BFGS"),control=list(fnscale=-1),hessian=TRUE)
+R_z = cor(z)
+comp1 = -eigen(R_z)$vectors[ ,1]
+comp2 = eigen(R_z)$vectors[ ,2]
+rbind(comp1,comp2)
 
-# Printing the results to the screen
-postMode <- OptimResults$par
-postCov <- -solve(OptimResults$hessian) # Posterior covariance matrix is -inv(Hessian)
-names(postMode) <- covNames # Naming the coefficient by covariates
-approxPostStd <- sqrt(diag(postCov)) # Computing approximate standard deviations.
-names(approxPostStd) <- covNames # Naming the coefficient by covariates
+# table of corr between z and first 2 components
+y1 = as.matrix(z) %*% as.matrix(comp1)
+y2 = as.matrix(z) %*% as.matrix(comp2)
+rbind(cor(y1,z),cor(y2,z))
 
-# posterior density is approximately multivariate normal.
-par(mfrow = c(3,3))
-for(i in 1:length(as.vector(rep(0,ncol(x))))){
-  # normal approximation
-  sd_i <- approxPostStd[i]
-  betaSeq <- seq(postMode[i] - 4*sd_i,
-                 postMode[i] + 4*sd_i,
-                 length = 1000)
-  plot(betaSeq,dnorm(x = betaSeq,mean = postMode[i],sd = sd_i),
-       type = "l", main = names(postMode)[i],col="blue",
-       ylab = "",xlab = expression(beta))
+# cumulative percentage of total sample varance explained by 
+# the first two components is
+sum(eigen(R_z)$values[1:2]) / sum(eigen(R_z)$values)
+# [1] 0.919474
 
-}
-par(mfrow = c(1,1))
+### 1d
+dat[order(y1),1]
+# [1] USA GER RUS CHN FRA GBR CZE POL ROM AUS
 
+#### Question 2: Factor analysis ####
+S = cov(dat[,2:8])
 
-### 1(c) simulate actual posterior of beta 
-### by Metropolis algorithm
+# PC estimation
+library(psych)
 
-metropolis <- function(logPostFunction, constant, data, initVal, nDraws, ...) {
-  thetaDraws <- matrix(nrow = (nDraws+1),
-                       ncol = length(initVal))
-  thetaDraws[1,] <- initVal
-  # Metropolis-Hastings
-  for (i in 2:(nDraws+1)) {
-    # Proposal distribution
-    theta_p <- rmvnorm(n=1, mean=thetaDraws[(i-1),], 
-                       sigma=constant*(-solve(OptimResults$hessian)))
-    
-    # Compute alpha
-    alpha <- min(1, logPostFunc(theta=list(proposal=theta_p,current=thetaDraws[(i-1),]),c=constant))
-    
-    # Accept with probability
-    u <- runif(n = 1)
-    if (u < alpha) thetaDraws[i,] <- theta_p
-    else thetaDraws[i,] <- thetaDraws[(i-1),]
-  }
-  return(thetaDraws)
-}
+fit1 = principal(dat[,2:8], nfactors=2, rotate="none")
+fit1$loadings
 
-# (log) posterior function
-logPostFunc <- function(theta, c, X=x, y=as.vector(dat$nBids), ...){
+fit2 = principal(dat[,2:8],nfactors=2,rotate="varimax")
+fit2$loadings
 
-  theta_p <- theta$proposal
-  theta_c <- theta$current
-  nPara <- length(theta_p)
-  
-  linComb_p <- X%*%as.vector(theta_p)
-  linComb_c <- X%*%as.vector(theta_c)
-  
-  # proposal
-  logPrior_p <- dmvnorm(theta_p, mu, Sigma, log=TRUE)
-  logPost_p <- sum(y*linComb_p - exp(linComb_p)) + logPrior_p
-  
-  # current
-  logPrior_c <- dmvnorm(theta_c, mu, Sigma, log=TRUE) #+ log(c)
-  logPost_c <- sum(y*linComb_c - exp(linComb_c)) + logPrior_c
-  
-  # ratio of posterior densities
-  return(exp(logPost_p - logPost_c))
-}
+factor_score_eff1 = t(matrix(fit1$loadings,ncol=2)) %*% solve(R)
+# factor score for all data
+f = matrix(NA,ncol = nrow(z),nrow = 2)
+for(i in 1:nrow(z)) 
+  f[,i] = factor_score_eff1 %*% t(as.matrix(z[i,]))
+f
 
+# find outliers
+plot(f[1,],f[2,],xlab="First Factor",ylab="Second Factor",
+     main = "PC Estimation with Rotated Laodings",
+     cex = 0.8)
 
-MH <- metropolis(logPostFunction = logPostFunc,
-                 initVal = as.vector(rep(0,ncol(x))),
-                 c = 1.3,
-                 nDraws = 5000)
+# lable the outliers
+index = order(f[1,],decreasing = T)[1:3]
+# [1] 46 11 40
+dat$V1[index]
+# [1] SAM COK PNG
 
-# Assess MCMC convergence by exp(beta)
-par(mfrow = c(3,3))
-for(i in 1:ncol(MH)){
-  
-  # plot metroplis simulations 1(c)
-  plot(exp(MH[,i]),xlab="Iteration", ylab = "expression(beta)",
-       type="l",main = names(postMode)[i])
-  
-}
-par(mfrow = c(1,1))
+plot(f[1,-index],f[2,-index],xlab="First Factor",ylab="Second Factor",
+     main = "PC Estimation with Rotated Laodings",
+     cex = 0.8, col = "blue",xlim=c(-1.5,3.5),ylim=c(-3.2,3))
+points(f[1,index],f[2,index],cex = 0.8, col = "red",type = "p" )
 
-# Compute the posterior distribution of exp(beta)
-par(mfrow = c(3,3))
-for(i in 1:ncol(MH)){
+# ML estimation
+fit3 <- factanal(dat[,2:8], 2, rotation="none")
+fit3$loadings
 
-  # plot metroplis simulations 1(c)
-  hist(exp(MH[,i]),ylab = "",xlab = expression(beta),
-       main = names(postMode)[i],breaks = 50,freq = FALSE)
-  # compare with the approximate results in b).
-  # plot approximately multivariate normal 1(b)
-  #sd_i <- approxPostStd[i]
-  #betaSeq <- seq(postMode[i] - 4*sd_i,
-   #              postMode[i] + 4*sd_i,
-  #               length = 1000)
-  #lines(betaSeq,dnorm(x = betaSeq,mean = postMode[i],sd = sd_i),
-   #     type = "l",lwd = 2,col = "red")
-}
-par(mfrow = c(1,1))
+fit4 <- factanal(dat[,2:8], 2, rotation="varimax")
+fit4$loadings
 
+factor_score_eff2 = t(matrix(fit4$loadings,ncol=2)) %*% solve(R)
+# factor score for all data
+f2 = matrix(NA,ncol = nrow(z),nrow = 2)
+for(i in 1:nrow(z)) 
+  f2[,i] = factor_score_eff2 %*% t(as.matrix(z[i,]))
+f2
 
-################################################################
-# This is the log posterior density of the beta(s+a,f+b) density
-# Bernoulli model with a Beta prior
-LogPostBernBeta <- function(theta, s, f, a, b){
-  logPost <- (s+a-1)*log(theta) + (f+b-1)*log(1-theta)
-  return(logPost)
-}
-# Testing if the log posterior function works
-s <- 8;f <- 2;a <- 1;b <- 1
-logPost <- LogPostBernBeta(theta = 0.1, s, f, a, b)
-print(logPost)
-# This is a rather useless function that takes the function myFunction,
-# evaluates it at x = 0.3, and then returns two times the function value.
-MultiplyByTwo <- function(myFunction, ...){
-  x <- 0.3
-  y <- myFunction(x,...)
-  return(2*y)
-}
-# try if the MultiplyByTwo function works:
-MultiplyByTwo(LogPostBernBeta,s,f,a,b)
-#################################################################
+# find outliers
+plot(f2[1,],f2[2,],xlab="First Factor",ylab="Second Factor",
+     main = "Principal Component Factor Analysis",
+     cex = 0.8)
 
-### 1(d) simulate from the predictive distribution
-### Use the MCMC draws from c)
-x_pred = matrix(c(1,1,1,0,0,0,1,0.5),nrow = 1) 
-# add constant
-x_pred = cbind(1,x_pred)
+# lable the outliers
+ind_x = order(f2[1,],decreasing = T)[1]
+# [1] 46 
+ind_y = order(f2[2,],decreasing = T)[1:2]
+# 11 31
+index2 = c(ind_x,ind_y)
+dat$V1[index2]
+# [1] SAM  COK  KORN
 
-beta_est <- as.vector(colMeans(MH))
-
-y_pred <- rpois(n = 1000, lambda = exp(x_pred%*%beta_est))
-hist(y_pred,breaks = 50,xlab = "nBids",freq = F)
-
-probNoBidders <- (sum(y_pred == 0))/(length(y_pred))
-cat("The probability that there are no bidders in this new auction is", probNoBidders)
-
-
+plot(f2[1,-index2],f2[2,-index2],xlab="First Factor",ylab="Second Factor",
+     main = "Maximum Likelihood Factor Analysis",
+     cex = 0.8, col = "blue",xlim=c(-1.5,5.5),ylim=c(-3.2,3))
+points(f2[1,index2],f2[2,index2],cex = 0.8, col = "red",type = "p" )
