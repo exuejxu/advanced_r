@@ -29,3 +29,22 @@ if((length(freq) == 1)){
 if(any(freq/sum(freq) < 2/50) | (length(freq) == 1)){
   return(NA)
 }                 
+
+par.transform <- function(pars){
+  c(pars[1],pars[1],0,0,pars[2],pars[2])
+}
+  
+par.transform <- function(pars){
+  c(pars[1],pars[1],0,0,pars[2],pars[3])
+}  
+  
+par.transform <- function(pars){
+  c(pars[1],pars[2],0,0,pars[3],pars[3])
+} 
+  
+par.transform <- function(pars){
+  c(pars[1],pars[2],0,0,pars[3],pars[4])
+}
+  
+fit <- find.mle(lik.l,p[argnames(lik.l)], method="subplex")
+  
