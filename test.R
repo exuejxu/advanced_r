@@ -47,4 +47,4 @@ par.transform <- function(pars){
 }
   
 fit <- find.mle(lik.l,p[argnames(lik.l)], method="subplex")
-  
+par.transform(coef(fit))
